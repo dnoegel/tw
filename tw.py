@@ -9,10 +9,12 @@ import simplejson
 #http://code.google.com/p/tweepy/wiki/APIReference
 
 
-CONFIG = os.path.expanduser("~/.config/tw.cfg")
-
+## Put Developer-Key and Dev-Secret here
 CONSUMER_KEY = "HUksGUHzty6Zz521xhV8GA"
 CONSUMER_SECRET = "dler0WgFKWPn3IkTF076RxbEnvfNqPeyUwvxu0WnwY"
+
+## Config-path
+CONFIG = os.path.expanduser("~/.config/tw.cfg")
 
 ## Load Config from json-string
 try:
@@ -78,9 +80,9 @@ def print_tweet(tweet, short_tweet_id, startpos, is_result=False):
         author = encode(tweet.author.name)
     
     if retweet: 
-        print "{0}) {4}: RT @{1}: \n{2}\n(Tweet ID: {3} | Short Tweet ID: {5})\n".format(startpos, author, encode(tweet.text), tweet.id, encode(original_tweet.author.name), short_tweet_id)
+        print "{0}) {4}: RT @{1} ({time}): \n{2}\n(Tweet ID: {3} | Short Tweet ID: {5})\n".format(startpos, author, encode(tweet.text), tweet.id, encode(original_tweet.author.name), short_tweet_id,time=tweet.created_at)
     else:
-        print "{0}) {1}: \n{2}\n(Tweet ID: {3} | Short Tweet ID: {4})\n".format(startpos, author, encode(tweet.text), tweet.id, short_tweet_id)
+        print "{0}) {1}: ({time})\n{2}\n(Tweet ID: {3} | Short Tweet ID: {4})\n".format(startpos, author, encode(tweet.text), tweet.id, short_tweet_id,time=tweet.created_at)
                 
 
 if __name__ == "__main__":
@@ -96,11 +98,18 @@ if __name__ == "__main__":
     query = parser.add_argument_group("Query options")
     query.add_argument("-c", '--count',  help='Number of tweets to fetch. Default: 20 Max: 200', default=20, action='store', type=int)
     query.add_argument("-p", '--page',  help='Page to start from. Default: 0', default=1, action='store', type=int)
-    ops.add_argument('-n', '--new',  help='Only show new tweets', default=False, action='store_true')
+    query.add_argument('-n', '--new',  help='Only show new tweets', default=False, action='store_true')    
     
     do_tweet = parser.add_argument_group("Tweet options")
     do_tweet.add_argument("-r", '--retweet',  metavar="(Short)TweetID", help='Retweet a given tweet', default=0, action='store', type=int)
     do_tweet.add_argument("-t", '--tweet',  metavar="Message", help='Update status / tweet', default=0, action='store', type=str)
+    
+    favs = parser.add_argument_group("Favorite options")
+    favs.add_argument("-f", '--favorite',  metavar="(Short)TweetID", help='Favorite given Status', default=0, action='store', type=int)
+    favs.add_argument('--list-favorites', help='List favorites', default=False, action='store_true')
+    
+    misc = parser.add_argument_group("Misc options")
+    misc.add_argument('-q', '--list-searches',  help='List recent searches', default=False, action='store_true')
     
     args = parser.parse_args()
 
@@ -128,17 +137,18 @@ if __name__ == "__main__":
 
     short_tweet_ids = []
     
+    #
+    # Tweet and retweet
+    # 
+    
+    ## Tweet a message
     if args.tweet:
-        if len(args.tweet)>140:
-            print "Message to long ({0}/140)".format(len(args.tweet))
-            sys.exit(2)
-        else:
-            try:
-                print api.update_status(args.tweet)
-            except tweepy.error.TweepError, inst:
-                print "An error occured: {0}".format(inst)
-                sys.exit(3)
-            
+        try:
+            api.update_status(args.tweet)
+            print "Tweeted your message"
+        except tweepy.error.TweepError, inst:
+            print "An error occured: {0}".format(inst)
+            sys.exit(3)
 
     ## Retweet a message
     if args.retweet and args.retweet > 0:
@@ -155,6 +165,45 @@ if __name__ == "__main__":
         print "Retweeting the following tweet: "
         print_tweet(api.get_status(tweet_id), "None", 1)
         api.retweet(tweet_id)
+
+    #
+    # Favorites
+    #
+    
+    ## Favorite a message
+    if args.favorite and args.favorite > 0:
+        if  args.favorite < 10000:
+            try:
+                tweet_id = conf["short_tweet_ids"][args.favorite-1]
+            except IndexError:
+                print "Short Tweet ID not found."
+                print "Remember: Short Tweet IDs are only valid for one twcmd session"
+                sys.exit(5)
+        else:
+            tweet_id = args.favorite
+        
+        print "Favoriting the following tweet: "
+        print_tweet(api.get_status(tweet_id), "None", 1)
+        api.create_favorite(tweet_id)
+
+    ## List favorites
+    if args.list_favorites:
+        print "Favorites:"
+        print "=========="
+        for i, tweet in r_enumerate(api.favorites(page=args.page, count=args.count)):
+            short_tweet_ids.append(tweet.id)
+            print_tweet(tweet, len(short_tweet_ids), i+startpos)
+
+
+    #
+    # Different list modes
+    #
+
+    if args.list_searches:
+        print "Recent Searches:"
+        print "================"
+        for i, search in enumerate(conf["latest_search"]):
+            print "{0}) {1}".format(i+1, search)
 
     ## process the different tweet-modes
     if args.home:
@@ -190,7 +239,7 @@ if __name__ == "__main__":
             short_tweet_ids.append(result.id)
             print_tweet(result, len(short_tweet_ids), i+startpos, is_result=True)
             
-            conf["latest_search"][args.search] = result.id
+            conf["latest_search"][args.search.lower()] = result.id
 
     ## Store short tweet ids into the config-dict
     conf["short_tweet_ids"] = short_tweet_ids
