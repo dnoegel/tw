@@ -65,7 +65,7 @@ def r_enumerate(container):
         yield i, item
 
 ## Print a tweet
-def print_tweet(tweet, short_tweet_id, startpos, is_result=False):
+def print_tweet(tweet, short_tweet_id, startpos):
     original_tweet = tweet
     try: 
         tweet =  tweet.retweeted_status
@@ -73,9 +73,9 @@ def print_tweet(tweet, short_tweet_id, startpos, is_result=False):
     except AttributeError:
         retweet = False
         
-    if is_result:
+    try:
         author = encode(tweet.from_user_name)
-    else:
+    except AttributeError:
         author = encode(tweet.author.name)
     
     if retweet: 
@@ -239,7 +239,7 @@ if __name__ == "__main__":
         print "============="
         for i, result in r_enumerate(api.search(q=args.search,since_id=since_search, page=args.page, rpp=args.count)):
             short_tweet_ids.append(result.id)
-            print_tweet(result, len(short_tweet_ids), i+startpos, is_result=True)
+            print_tweet(result, len(short_tweet_ids), i+startpos)
             
             conf[u"latest"][u"search"][args.search.lower()] = result.id
 
