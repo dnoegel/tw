@@ -10,8 +10,8 @@ import simplejson
 
 
 ## Put Developer-Key and Dev-Secret here
-CONSUMER_KEY = "HUksGUHzty6Zz521xhV8GA"
-CONSUMER_SECRET = "dler0WgFKWPn3IkTF076RxbEnvfNqPeyUwvxu0WnwY"
+CONSUMER_KEY = "INSERT_HERE"
+CONSUMER_SECRET = "INSERT_HERE"
 
 ## Config-path
 CONFIG = os.path.expanduser("~/.config/tw.cfg")
@@ -22,15 +22,15 @@ try:
         content = fh.read()
         conf = simplejson.loads(content)
 except (IOError, simplejson.decoder.JSONDecodeError):
-    conf = {"key":None, "secret":None, 
-        "latest_home":None, "latest_mentions":None, "latest_own":None, "latest_search":{},
-        "short_tweet_ids":[]}
+    conf = {u"key":None, u"secret":None, 
+        u"latest":{u"search":{}},
+        u"short_tweet_ids":[]}
 
 ## login and return auth-object
 def do_login(conf):
 
     auth = tweepy.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
-    if conf["key"] and conf["secret"]:
+    if conf[u"key"] and conf[u"secret"]:
         pass
     else:
         url = auth.get_authorization_url()
@@ -41,17 +41,16 @@ def do_login(conf):
         print "2) Schalten sie dieses Programm frei und geben sie die PIN hier ein:"
         pin = ""
         while not pin.isdigit():
-            pin = raw_input("PIN: ")
+            pin = unicode(raw_input("PIN: "))
         auth.get_access_token(pin)
         
-        conf["key"] = auth.access_token.key
-        conf["secret"] = auth.access_token.secret
+        conf[u"key"] = auth.access_token.key
+        conf[u"secret"] = auth.access_token.secret
         
         with open(CONFIG, "w") as fh:
             fh.write(simplejson.dumps(conf))
         
-    auth.set_access_token(conf["key"], conf["secret"])
-    
+    auth.set_access_token(conf[u"key"], conf[u"secret"])
     return auth
 
 ## returns utf-8 encoded text
@@ -120,11 +119,11 @@ if __name__ == "__main__":
     ## if "--latest" was specified, set since_ids to the correct values
     # else set them to None (=no filter)
     if args.new:
-        since_home = conf["latest_home"]
-        since_mentions = conf["latest_mentions"]
-        since_own = conf["latest_own"]
-        if args.search and args.search in conf["latest_search"]:
-            since_search = conf["latest_search"][args.search]
+        since_home = conf[u"latest"].get(u"home", None)
+        since_mentions = conf[u"latest"].get(u"mentions", None)
+        since_own = conf[u"latest"].get(u"own", None)
+        if args.search and args.search in conf[u"latest"].get(u"search", {}):
+            since_search = conf[u"latest"][u"search"][args.search]
         else:
             since_search = None
     else:
@@ -154,7 +153,7 @@ if __name__ == "__main__":
     if args.retweet and args.retweet > 0:
         if  args.retweet < 10000:
             try:
-                tweet_id = conf["short_tweet_ids"][args.retweet-1]
+                tweet_id = conf[u"short_tweet_ids"][args.retweet-1]
             except IndexError:
                 print "Short Tweet ID not found."
                 print "Remember: Short Tweet IDs are only valid for one twcmd session"
@@ -174,7 +173,7 @@ if __name__ == "__main__":
     if args.favorite and args.favorite > 0:
         if  args.favorite < 10000:
             try:
-                tweet_id = conf["short_tweet_ids"][args.favorite-1]
+                tweet_id = conf[u"short_tweet_ids"][args.favorite-1]
             except IndexError:
                 print "Short Tweet ID not found."
                 print "Remember: Short Tweet IDs are only valid for one twcmd session"
@@ -202,7 +201,7 @@ if __name__ == "__main__":
     if args.list_searches:
         print "Recent Searches:"
         print "================"
-        for i, search in enumerate(conf["latest_search"]):
+        for i, search in enumerate(conf[u"latest"].get(u"search", {})):
             print "{0}) {1}".format(i+1, search)
 
     ## process the different tweet-modes
@@ -212,7 +211,8 @@ if __name__ == "__main__":
         for i, tweet in r_enumerate(api.home_timeline(since_id=since_home,page=args.page, count=args.count)):
             short_tweet_ids.append(tweet.id)
             print_tweet(tweet, len(short_tweet_ids), i+startpos)
-            conf["latest_home"] = tweet.id
+            #~ conf["latest_home"] = tweet.id
+            conf[u"latest"][u"home"] = tweet.id
     
     if args.mentions:
         print "Mentions:"
@@ -221,7 +221,8 @@ if __name__ == "__main__":
             short_tweet_ids.append(tweet.id)
             print_tweet(tweet, len(short_tweet_ids), i+startpos)
             
-            conf["latest_mentions"] = tweet.id
+            conf[u"latest"][u"mentions"] = tweet.id
+            #~ conf["latest_mentions"] = tweet.id
     
     if args.own:
         print "Own tweets:"
@@ -230,7 +231,8 @@ if __name__ == "__main__":
             short_tweet_ids.append(tweet.id)
             print_tweet(tweet, len(short_tweet_ids), i+startpos)
             
-            conf["latest_own"] = tweet.id
+            conf[u"latest"][u"own"] = tweet.id
+            #~ conf["latest_own"] = tweet.id
             
     if args.search:
         print "Search tweets"
@@ -239,10 +241,10 @@ if __name__ == "__main__":
             short_tweet_ids.append(result.id)
             print_tweet(result, len(short_tweet_ids), i+startpos, is_result=True)
             
-            conf["latest_search"][args.search.lower()] = result.id
+            conf[u"latest"][u"search"][args.search.lower()] = result.id
 
     ## Store short tweet ids into the config-dict
-    conf["short_tweet_ids"] = short_tweet_ids
+    conf[u"short_tweet_ids"] = short_tweet_ids
     
     ## write back config-object
     with open(CONFIG, "w") as fh:
